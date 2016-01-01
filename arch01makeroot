@@ -214,7 +214,10 @@ genfstab -pU harddiskforarch >> harddiskforarch/etc/fstab
 #####################################
 # Make /tmp a ramdisk (add the following line to harddiskforarch/etc/fstab) - not if too low memory
 #echo "tmpfs	/tmp	tmpfs	defaults,noatime,mode=1777	0	0" >> harddiskforarch/etc/fstab
+
+# genfstab not run in chroot, correcting (you can edit /etc/fstab later after reboot):
 sed -i 's/\/root\/harddiskforarch/\//g' harddiskforarch/etc/fstab
+sed -i 's/\/root\/oldpcsetup\/harddiskforarch/\//g' harddiskforarch/etc/fstab
 
 # Swap is in /etc/fstab, not needed now anymore
 swapoff $swappart
