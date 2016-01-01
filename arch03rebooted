@@ -1,0 +1,350 @@
+#!/bin/bash
+# Try to find internet from a router, every boot and now:
+echo ""
+echo "Activating dhcp. Wait for connection to be established..."
+systemctl enable dhcpcd.service
+sleep 2
+systemctl start dhcpcd.service
+sleep 10
+sync
+# Configuration and files
+################################################################################
+echo "Generating install scripts install* to run after login:"
+echo '#!/bin/bash' > arch04internet
+cat <<EOF >> arch04internet
+echo ""
+echo "Upgrading system (from internet)..."
+echo ""
+sync
+sleep 2
+pacman -Syu --noconfirm
+sleep 2
+echo ""
+echo "Completed trying to upgrade system."
+echo ""
+echo "If internet does not work, do not run the other scripts."
+echo ""
+sync
+sleep 1
+EOF
+chmod a+x arch04internet
+# ... for #!/bin/bash if I put "" gives me an error because of the !
+echo '#!/bin/bash' > arch05bigdump
+cat <<EOF >> arch05bigdump
+echo ""
+# Making sure package lists are up to date right now
+pacman -Syu --noconfirm
+sleep 2
+# Console packages - fdisk is in util-linux which is in base-devel
+pacman -S --noconfirm --needed base base-devel arch-install-scripts dosfstools ddrescue mtools libarchive pkgfile iotop gptfdisk parted mkinitcpio mkinitcpio-busybox upower mc libnewt newt-syrup openssh openssl wiringpi espeak mpg123 flac lame youtube-dl imagemagick git wget libx264 mediainfo ncdu vorbis-tools elinks mc
+sleep 2
+echo ""
+pkgfile --update
+sleep 2
+# Omxplayer available as oi for all users
+# Root aliases, used only by root
+cp /root/.bash_profile /root/.bash_profile.old
+echo "[[ -f ~/.bashrc ]] && . ~/.bashrc" > /root/.bash_profile
+echo 'alias yt="youtube-dl -f mp4/best"' > /root/.bashrc
+. ~/.bashrc
+echo ""
+echo "Added root aliases yt -> youtube-dl and pk -> packer."
+echo ""
+echo "Rebooting to have latest programs loaded."
+sleep 2
+sync
+sleep 8
+reboot
+echo ""
+echo "Activating autologin root... not recomended but maybe cool..."
+echo ""
+echo "If you want to keep ssh and have a user, change this script..."
+echo ""
+sleep 1
+systemctl stop sshd.service
+systemctl disable sshd.service
+echo ""
+echo "Wait..."
+sleep 1
+sync
+sleep 1
+systemctl daemon-reload
+sleep 5
+sync
+sleep 3
+rm /etc/systemd/system/getty.target.wants/getty@tty1.service
+cp /lib/systemd/system/getty@.service /etc/systemd/system/getty@tty1.service
+sed -i 's/--noclear/--autologin root --noclear/g' /etc/systemd/system/getty@tty1.service
+echo ";Alias=getty@tty1.service" >> /etc/systemd/system/getty@tty1.service
+ln -s /etc/systemd/system/getty@tty1.service /etc/systemd/system/getty.target.wants/getty@tty1.service
+sleep 1
+echo ""
+echo "Hack for autologing into root console and disabling ssh activated."
+echo ""
+echo "If you want to build packages, it's hard to be root, you need to:"
+echo ""
+echo "1) Edit /usr/bin/makepkg"
+echo ""
+echo "    a) Add 'asroot' in OPT_LONG=()"
+echo "    b) Comment and add a sleep 1 inside if (( EUID == 0 ))"
+echo ""
+sleep 2
+sync
+sleep 2
+echo ""
+echo "Installing mate..."
+echo ""
+sleep 2
+# Making sure package lists are up to date right now
+pacman -Syu --noconfirm
+sleep 2
+# Sound packages
+pacman -S --noconfirm --needed alsa-utils alsa-plugins pulseaudio pulseaudio-alsa paprefs pavucontrol timidity++ timidity-freepats
+sleep 2
+# Xorg packages
+pacman -S --noconfirm --needed unrar unzip zip unarj p7zip gzip bzip2 mesa-libgl ttf-freefont ttf-dejavu xorg xorg-server xorg-xinit libksane xsane-gimp inkscape phonon-qt4-gstreamer phonon-qt5-gstreamer gparted gimp libreoffice-still jre8-openjdk jdk8-openjdk xsane xorg-xrefresh fltk
+sleep 2
+# Mate packages (Lxde has some annoying errors recently and mate works better with media mounts)
+pacman -S --noconfirm --needed calligra-krita gpicview openbox transmission-gtk mediainfo-gui gvfs texlive-bin evince mate mate-extra midori xine-ui gnome-alsamixer file-roller audacious
+pacman -S --noconfirm --needed leafpad
+sleep 2
+# Game packages
+pacman -S --noconfirm --needed kobodeluxe klines fltk-games
+sleep 2
+sync
+sleep 2
+echo "exec mate-session" > /root/.xinitrc
+echo ""
+# Sometimes xorg-xinit not installed well and needs reinstall:
+#pacman -S --noconfirm xorg xorg-xinit
+# Kodi leaves a blank screen when exiting, this hack fixes that
+mkdir /usr/bin
+mkdir /root/.kodi
+mkdir /root/.kodi/temp/
+echo '#!/bin/bash' > /usr/bin/kodiexitfixroot
+echo '' >>  /usr/bin/kodiexitfixroot
+echo "if [[ \\\$(tail -1 /root/.kodi/temp/kodi.log | grep \"application stopped...\") ]]; then" >> /usr/bin/kodiexitfixroot
+echo '    killall kodi.bin' >> /usr/bin/kodiexitfixroot
+echo '    mv /root/.kodi/temp/kodi.log /root/.kodi/temp/kodi.old.log' >> /usr/bin/kodiexitfixroot
+echo '    sleep 1 && chvt 2 && sleep 1 && chvt 1' >> /usr/bin/kodiexitfixroot
+echo 'fi' >> /usr/bin/kodiexitfixroot
+# check depmod is not replaced and repair it again if it has
+echo 'if [[ \`cat /usr/bin/depmod |grep "mkinitcpio" |wc -c\` = 0 ]]; then' >> /usr/bin/kodiexitfixroot
+# in case replacing is still in progress
+echo '    sleep 2' >> /usr/bin/kodiexitfixroot
+echo '    rename depmod depmodbin /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo "    echo '#!/bin/bash' > /usr/bin/depmod" >> /usr/bin/kodiexitfixroot
+# checking if more parameters or not, when one, for sure it's kernel version, when more, depmodbin alone
+echo "    echo 'if [[ \\\`echo \\\$2 |wc -c\\\` != 1 ]]; then' >> /usr/bin/depmod" >> /usr/bin/kodiexitfixroot
+echo '    echo "    depmodbin \\\$1 \\\$2 \\\$3 \\\$4 \\\$5 \\\$6 \\\$7 \\\$8 \\\$9" >> /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo '    echo "else" >> /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+# Indicating new version instead of current version
+echo '    echo "    depmodbin \\\$1" >> /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo '    echo "    mkinitcpio -k \\\$1 -g /boot/initrd" >> /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo '    echo "fi" >> /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo '    echo "exit 0" >> /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo '    chmod a+x /usr/bin/depmod' >> /usr/bin/kodiexitfixroot
+echo 'fi' >> /usr/bin/kodiexitfixroot
+#echo "sed -i 's/chromium %U/chromium --no-sandbox --user-data-dir \\\/var\\\/cache\\\/chromiumdir %U/g' /usr/share/applications/chromium.desktop" >> /usr/bin/kodiexitfixroot
+echo "exit 0" >> /usr/bin/kodiexitfixroot
+chmod a+x /usr/bin/kodiexitfixroot
+echo "Conf file to make sound work (on internal speaker):"
+echo "options snd-intel8x0 ac97_quirk=3 enable=1" > /etc/modprobe.d/alsa-base.conf
+# Arch uses systemd timers not cron by default
+cat <<EOG > /etc/systemd/system/kodiexitfixroot.timer
+[Unit]
+Description=kodiexitfixroot timer
+[Timer]
+# Every 10 seconds
+OnCalendar=*-*-*  *:*:0/10
+Unit=kodiexitfixroot.service
+[Install]
+WantedBy=timers.target
+EOG
+cat <<EOG > /etc/systemd/system/kodiexitfixroot.service 
+[Unit]
+Description=kodiexitfixroot service
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/bin/kodiexitfixroot
+EOG
+sleep 1
+systemctl daemon-reload
+sleep 3
+systemctl enable kodiexitfixroot.timer
+systemctl start kodiexitfixroot.timer
+sleep 2
+sync
+sleep 2
+# Disable automatic smart testing because hdds are slower for five minutes after each detection:
+systemctl disable smartd
+# Sound always on to avoid hdmi audio popping:
+sed -i 's/load-module module-suspend-on-idle/#load-module module-suspend-on-idle/g' /etc/pulse/default.pa
+sed -i 's/load-module module-suspend-on-idle/#load-module module-suspend-on-idle/g' /etc/pulse/system.pa
+# Comment settings that will be modified, double comment if commented:
+sed -i 's/flat-volumes = /; flat-volumes = /g' /etc/pulse/daemon.conf
+sed -i 's/nice-level = /; nice-level = /g' /etc/pulse/daemon.conf
+sed -i 's/realtime-scheduling = /; realtime-scheduling = /g' /etc/pulse/daemon.conf
+# Avoid system hangs because of audio, let the audio hang instead:
+cp /etc/pulse/daemon.conf /etc/pulse/daemon.conf.original
+echo "# Settings modified from their default to avoid system hangs:" > /etc/pulse/daemon.conf
+echo "" >> /etc/pulse/daemon.conf
+echo "flat-volumes = no" >> /etc/pulse/daemon.conf
+echo "nice-level = -1" >> /etc/pulse/daemon.conf
+echo "realtime-scheduling = no" >> /etc/pulse/daemon.conf
+sleep 3
+systemctl daemon-reload
+sleep 5
+sync
+sleep 3
+systemctl --user enable pulseaudio.service
+systemctl --user start pulseaudio.service
+sleep 3
+systemctl daemon-reload
+sleep 5
+sync
+sleep 3
+amixer cset numid=3 -- 90%
+mkdir /var/cache/chromiumdir
+chown 777 /var/cache/chromiumdir
+echo ""
+echo ""
+echo "To make sound work after installing mate, reboot, open alsamixer,"
+echo ""
+echo "select Intel sound card (not default), unmute and increase volume"
+echo ""
+echo "to maximum on Master mono (second one) from the left."
+echo ""
+echo ""
+sleep 2
+sync
+sleep 2
+echo "Activating auto startx at root login..."
+echo ""
+echo "[[ -z \\\$DISPLAY && \\\$XDG_VTNR -eq 1 ]] && exec startx" >> /root/.bash_profile
+sleep 1
+echo ""
+echo "Inserted startx in .bash_profile, original file copied to .bash_profile.old"
+echo ""
+echo "Use CTRL + ALT + F2 or more to get to a console."
+echo ""
+echo "Don't run this script again on this install or you lose .bash_profile.old"
+echo ""
+sleep 2
+sync
+sleep 2
+EOF
+chmod a+x arch05bigdump
+echo '#!/bin/bash' > mouseslower.sh
+cat <<EOF >> mouseslower.sh
+# http://felixmilea.com/2014/10/bash-command-automatically-fix-mouse-sensitivity/
+# Some devices (like barcode readers mouse) don't work with option in xorg.conf
+echo "See your device name with: xinput --list --short"
+echo "and replace instead of Barcode Reader in command."
+echo "Replace 2 with what you want -- how many times slower."
+echo "Then add command at the end of: /usr/bin/kodiexitfixroot"
+# If it appears multiple times, as a pointer or keyboard, takes care of that
+# Commented one is not echoed one, to be read in rpiarchppp not mouseslower.sh
+#xinput --list | grep 'Barcode Reader.*slave[[:space:]]\{1,2\}pointer' | grep -Po '\d+' | awk 'NR%2==1 {print "xinput --set-prop "$1" \"Device Accel Constant Deceleration\" 2"}' | while read line ; do eval $line ; done
+xinput --list | grep 'Barcode Reader.*slave[[:space:]]\{1,2\}pointer' | grep -Po '\d+' | awk 'NR%2==1 {print \"xinput --set-prop \"\$1\" \\\"Device Accel Constant Deceleration\\\" 2\"}' | while read line ; do eval \$line ; done
+EOF
+chmod a+x mouseslower.sh
+cd ../../
+######Directory changing ending
+echo "Files /root/install* have been written."
+echo ""
+echo ""
+echo "=================================================="
+echo ""
+echo ""
+sleep 2
+sync
+sleep 2
+mkdir /etc/
+echo ""
+echo "Conf file to reduce device wear by systemd:"
+echo "/etc/systemd/journald.conf.d/disablejournald.conf"
+mkdir /etc/systemd/journald.conf.d
+echo "[Journal]" > /etc/systemd/journald.conf.d/20-disable-journald.conf
+echo "Storage=none" >> /etc/systemd/journald.conf.d/20-disable-journald.conf
+echo "Seal=no" >> /etc/systemd/journald.conf.d/20-disable-journald.conf
+echo ""
+cat /etc/systemd/journald.conf.d/20-disable-journald.conf
+echo ""
+echo ""
+echo "Configuring man-db.timer and updatedb.timer to start later."
+mkdir /etc/systemd/system/man-db.timer.d
+echo "[Timer]" > /etc/systemd/system/man-db.timer.d/man-db.timer.conf
+echo "OnCalender=" >> /etc/systemd/system/man-db.timer.d/man-db.timer.conf
+echo "OnCalendar=13:15" >> /etc/systemd/system/man-db.timer.d/man-db.timer.conf
+echo "OnBootSec=1200" >> /etc/systemd/system/man-db.timer.d/man-db.timer.conf
+mkdir /etc/systemd/system/updatedb.timer.d
+echo "[Timer]" > /etc/systemd/system/updatedb.timer.d/updatedb.timer.conf
+echo "OnCalender=" >> /etc/systemd/system/updatedb.timer.d/updatedb.timer.conf
+echo "OnCalendar=13:45" >> /etc/systemd/system/updatedb.timer.d/updatedb.timer.conf
+echo "OnBootSec=1800" >> /etc/systemd/system/updatedb.timer.d/updatedb.timer.conf
+echo ""
+echo "Conf file to stop kernel messages:"
+echo "/etc/sysctl.d/20-quiet-prink.conf"
+mkdir /etc/sysctl.d
+echo "kernel.printk = 3 3 3 3" > /etc/sysctl.d/20-quiet-prink.conf
+echo ""
+cat /etc/sysctl.d/20-quiet-prink.conf
+echo ""
+echo ""
+echo "Conf file to improove disk performance:"
+echo "/etc/sysctl.d/30-rpi-optimizations.conf"
+echo ""
+cat <<EOF > /etc/sysctl.d/30-rpi-optimizations.conf
+vm.swappiness = 1
+vm.min_free_kbytes = 32768
+vm.vfs_cache_pressure = 500
+vm.dirty_bytes = 8388608
+vm.dirty_background_bytes = 8388608
+vm.dirty_writeback_centisecs = 600
+vm.dirty_expire_centisecs = 600
+# In other words the seven optimizations do this, in their order, each in paranthesis:
+#    (keep caches minimum and swap minimum), (keep a free memory of 32 MB), (keep a
+#    minimum amount of file information in cache), (processes write after reaching
+#    8MB in their memory) to a (cache of 8 MB in size), in which (old data is
+#    written every 6 seconds) and (data is considered old after 6 seconds).
+# Having a vm.swapiness bigger than 1 makes the kernel crash.
+# Having a vm.min_free_kbytes smaller than 8192 makes the system crash. More given.
+#
+#Decreasing vfs_cache_pressure causes the kernel to prefer
+#to retain dentry and inode caches. When vfs_cache_pressure=0, the kernel will
+#never reclaim dentries and inodes due to memory pressure and this can easily
+#lead to out-of-memory conditions. Increasing vfs_cache_pressure beyond 100
+#causes the kernel to prefer to reclaim dentries and inodes.
+#Increasing vfs_cache_pressure significantly beyond 100 may have negative
+#performance impact. Reclaim code needs to take various locks to find freeable
+#directory and inode objects. With vfs_cache_pressure=1000, it will look for
+#ten times more freeable objects than there are.
+#As Raspberry Pi has low memory, incresed vfs_cache_pressure a lot so less out of memory.
+EOF
+echo ""
+echo ""
+echo "Conf /etc/X11/xorg.conf.d/50-on-flags.conf for screen always on:"; echo ""
+mkdir /etc/X11
+mkdir /etc/X11/xorg.conf.d
+cat <<EOF > /etc/X11/xorg.conf.d/50-on-flags.conf
+Section "ServerFlags"
+    Option "BlankTime" "0"
+    Option "StandbyTime" "0"
+    Option "SuspendTime" "0"
+    Option "OffTime" "0"
+EndSection
+EOF
+################################################################################
+echo ""
+echo ""
+echo "Now run the imstall scripts in order."
+echo ""
+echo ""
+echo "To make sound work after installing mate, reboot, open alsamixer,"
+echo ""
+echo "select Intel sound card (not default), unmute and increase volume"
+echo ""
+echo "to maximum on Master mono (second one) from the left."
+echo ""
+echo ""
