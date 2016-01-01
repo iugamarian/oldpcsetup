@@ -36,7 +36,7 @@ echo ""
 pacman -Syu --noconfirm
 sleep 2
 # Console packages - fdisk is in util-linux which is in base-devel
-pacman -S --noconfirm --needed base base-devel arch-install-scripts dosfstools ddrescue mtools libarchive pkgfile iotop gptfdisk parted mkinitcpio mkinitcpio-busybox upower mc libnewt newt-syrup openssh openssl wiringpi espeak mpg123 flac lame youtube-dl imagemagick git wget libx264 mediainfo ncdu vorbis-tools elinks mc
+pacman -S --noconfirm --needed base base-devel arch-install-scripts dosfstools ddrescue mtools libarchive pkgfile iotop gptfdisk parted mkinitcpio mkinitcpio-busybox upower mc libnewt newt-syrup openssh openssl wiringpi espeak mpg123 flac lame youtube-dl imagemagick git wget libx264 mediainfo ncdu vorbis-tools elinks mc pkgfile
 sleep 2
 echo ""
 pkgfile --update
@@ -48,13 +48,7 @@ echo "[[ -f ~/.bashrc ]] && . ~/.bashrc" > /root/.bash_profile
 echo 'alias yt="youtube-dl -f mp4/best"' > /root/.bashrc
 . ~/.bashrc
 echo ""
-echo "Added root aliases yt -> youtube-dl and pk -> packer."
-echo ""
-echo "Rebooting to have latest programs loaded."
-sleep 2
-sync
-sleep 8
-reboot
+echo "Added root alias yt -> youtube-dl"
 echo ""
 echo "Activating autologin root... not recomended but maybe cool..."
 echo ""
