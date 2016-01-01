@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Set the hostname
+echo COMPAQ-P4 > /etc/hostname
+
+# Setup system clock
+rm /etc/localtime
+ln -sf /usr/share/zoneinfo/Europe/Bucharest /etc/localtime
+sleep 1
+hwclock --systohc --utc
+
+# Update locale
+echo LANG=en_US.UTF-8 > /etc/locale.conf
+echo LANGUAGE=en_US > /etc/locale.conf
+echo LC_ALL=C > /etc/locale.conf
+echo ""
+echo "Activating locales for Romania..."
+echo ""
+echo "You can edit this script to activate another..."
+echo ""
+sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
+sed -i 's/#ro_RO.UTF-8 UTF-8/ro_RO.UTF-8 UTF-8/g' /etc/locale.gen
+sleep 1
+locale-gen
+sleep 1
+localectl set-locale LANG=ro_RO.UTF8
+sleep 1
+localectl --no-convert set-keymap ro
+sleep 1
+localectl --no-convert set-x11-keymap ro pc105 ,dvorak grp:alt_shift_toggle
+sleep 1
+echo "KEYMAP=ro" > /etc/vconsole.conf
+sleep 1
+echo ""
+echo "If you don't like the locale ro, change in this script."
+echo ""
+echo "View the locale and keymap with list-locales, list-keymaps."
+echo ""
+echo ""
+echo "Set password for installed root"
+echo ""
+passwd
+
+# Add real user pi
+useradd -m -g users -G wheel,storage,power pi
+echo ""
+echo "Set password for added user pi"
+echo ""
+passwd pi
+
+# Configure mkinitcpio with modules needed for the initrd image
+sed -i 's/MODULES=""/MODULES="ext4"/g' /etc/mkinitcpio.conf
+
+# Regenerate initrd image
+mkinitcpio -p linux
+sleep 2
+sync
+sleep 2
+echo ""
+echo "Setup grub, running lsblk:"
+echo ""
+echo ""
+lsblk
+echo ""
+echo "Determine sdwhat (no number after) indicated as / by lsblk just up."
+echo ""
+echo "As we need to know /dev/sdwhat and exiting chroot is strange for scripts,"
+echo ""
+echo "these five commands need to be typed, you have them up on screen:"
+echo ""
+echo ""
+echo "grub-install /dev/sdwhat"
+echo ""
+echo "<<<< You can edit /boot/grub/grub.cfg if you want. >>>>>"
+echo ""
+echo "grub-mkconfig -o /boot/grub/grub.cfg"
+echo ""
+echo "exit"
+echo ""
+echo "umount -R harddiskforarch"
+echo ""
+echo "reboot"
+echo ""
