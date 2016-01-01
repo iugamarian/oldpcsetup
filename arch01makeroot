@@ -1,0 +1,235 @@
+#!/bin/bash
+harddiskforarch=/dev/sdwhat			# Before running, lsblk to indicate card here
+#********** END Configuration **************************************************************
+
+# Check to see if device is indicated
+if [ `echo $harddiskforarch | grep sdwhat |wc -c` -eq 0 ]; then
+    echo ""
+    echo "The drive to move root to is $harddiskforarch."
+    echo ""
+else
+    lsblk
+    echo ""
+    echo "Specify the drive by editing the beginning of this script."
+    echo ""
+    exit 1
+fi
+# Check to see if running as root
+echo -e "\nChecking for root."
+if [ `id -u` != 0 ]; then
+    echo "Not root."
+    echo -e "Need to be run as root.\n"
+    echo " Try 'sudo sh rpiarchppp' as a user. Exiting."
+    echo ""
+    exit 1
+else
+    echo "Root."
+fi
+# Noting time when started
+start_time=$(date)
+echo ""
+echo ""
+echo "============================================================"
+echo ""
+sleep 2
+# Allowing dd to be able to clear MBR (permission)
+viewsudouser=`logname`
+viewroot=""
+# A string echo "" is seen by wc as having 1 character so n+1, and a failed grep has a wc of 0
+if [ `echo $viewsudouser | grep "root" |wc -c` != 0 ] && [ `echo $viewsudouser |wc -c` = 5 ]; then
+viewroot="root"
+fi
+# On Arch a no login name gives a wc of 1
+if [ `echo $viewsudouser |wc -c` = 1 ]; then
+viewroot="root"
+fi
+# On other systems no login name maybe gives no login name
+if [ `echo $viewsudouser | grep "no login name" |wc -c` != 0 ]; then
+viewroot="root"
+fi
+if [ `echo $viewroot |wc -c` != 1 ]; then
+echo ""
+echo "Only root."
+echo "Adding root to the disk group."
+echo""
+usermod -G disk --append root
+else
+echo ""
+echo "Sudo is used by a user named $viewsudouser."
+echo "Adding user named $viewsudouser to the disk group."
+echo ""
+usermod -G disk --append $viewsudouser
+fi
+echo ""
+echo ""
+echo "On Arch fdisk is in util-linux which is in base-devel."
+echo ""
+echo "On Arch mkfs.vfat is in dosfstools and bsdtar is in libarchive."
+echo ""
+echo ""
+sleep 2
+# Detecting availability of indicated device
+if ! (fdisk -l | grep $harddiskforarch); then
+    echo "Can't find ($harddiskforarch). Insert and indicate it."
+    echo "No files. Only devices. Exiting."
+    echo ""
+    exit 1
+else
+    echo "Found indicated device $harddiskforarch."
+    echo ""
+fi
+echo ""
+echo "============================================================"
+echo ""
+sleep 2
+# Safety unmounting of possible partitions, logicals can start from 5
+echo "Unmounting partitions, up to 9, with or without p in front:"
+echo ""
+umount "$harddiskforarch"1
+umount "$harddiskforarch"2
+umount "$harddiskforarch"3
+umount "$harddiskforarch"4
+umount "$harddiskforarch"5
+umount "$harddiskforarch"6
+umount "$harddiskforarch"7
+umount "$harddiskforarch"8
+umount "$harddiskforarch"9
+umount "$harddiskforarch"p1
+umount "$harddiskforarch"p2
+umount "$harddiskforarch"p3
+umount "$harddiskforarch"p4
+umount "$harddiskforarch"p5
+umount "$harddiskforarch"p6
+umount "$harddiskforarch"p7
+umount "$harddiskforarch"p8
+umount "$harddiskforarch"p9
+swapoff "$harddiskforarch"1
+swapoff "$harddiskforarch"2
+swapoff "$harddiskforarch"3
+swapoff "$harddiskforarch"4
+swapoff "$harddiskforarch"5
+swapoff "$harddiskforarch"6
+swapoff "$harddiskforarch"7
+swapoff "$harddiskforarch"8
+swapoff "$harddiskforarch"9
+swapoff "$harddiskforarch"p1
+swapoff "$harddiskforarch"p2
+swapoff "$harddiskforarch"p3
+swapoff "$harddiskforarch"p4
+swapoff "$harddiskforarch"p5
+swapoff "$harddiskforarch"p6
+swapoff "$harddiskforarch"p7
+swapoff "$harddiskforarch"p8
+swapoff "$harddiskforarch"p9
+echo ""
+sleep 5
+echo ""
+echo "Deleting MBR and fat allocation table general area with dd:"
+# Need to dd more because fat filesystems may get confused about random
+# data in their first part where they store the fat allocation table
+dd if=/dev/zero of=$harddiskforarch bs=1M count=32 iflag=fullblock
+echo ""
+echo ""
+echo "Partitioning indicated device:"
+echo ""
+# On fdisk older than 25, setting bootable flag adds 1 after a: "a,1" < 25, "a" >= 25
+# But I follow the archlinuxarm instructions which don't set booteble flag
+# "Fdisk area". Be careful about the new lines (Enter).
+fdisk $harddiskforarch <<EOF
+o
+n
+
+
+
++200M
+n
+
+
+
++2048M
+n
+
+
+
+
+w
+EOF
+# Finished partitioning. Be careful about the new lines (Enter).
+sleep 5
+echo ""
+echo "=================================================="
+echo ""
+echo ""
+echo "Detecting if the device is seen as a mmcblk so that partitions have a p in front"
+echo ""
+if [ `echo $harddiskforarch | grep mmcblk |wc -c` != 0 ]; then
+echo ""
+echo "Partition numbers have a p in front of them..."
+bootpart="$harddiskforarch"p1
+swappart="$harddiskforarch"p2
+rootpart="$harddiskforarch"p3
+else
+echo ""
+echo "Partition numbers don't have a p in front of them..."
+bootpart="$harddiskforarch"1
+swappart="$harddiskforarch"2
+rootpart="$harddiskforarch"3
+fi
+echo ""
+echo -n "Boot partition is "
+echo $bootpart
+echo -n "Swap partition is "
+echo $swappart
+echo -n "Root partition is "
+echo $rootpart
+echo ""
+echo ""
+echo "Formatting partitions:"
+echo ""
+mke2fs -t ext2 -m 0 -F -L BOOTPC $bootpart
+mkswap $swappart
+# Disabling lazy options so that all inodes get written now not bit by bit later.
+mke2fs -t ext4 -m 0 -F -L ROOTPC -E lazy_itable_init=0,lazy_journal_init=0 $rootpart
+echo ""
+echo "Mounting partitions:"
+echo ""
+# So that it gets in /etc/fstab
+swapon $swappart
+mkdir harddiskforarch
+mount $rootpart harddiskforarch
+mkdir harddiskforarch/boot
+mount $bootpart harddiskforarch/boot
+echo ""
+echo "=================================================="
+echo ""
+sleep 2
+sync
+sleep 2
+# Install the system also includes stuff needed for starting wifi when first booting into the newly installed system
+# Unless vim and zsh are desired these can be removed from the command
+pacstrap harddiskforarch base base-devel grub git dialog mc dosfstools wget libarchive
+
+# 'insttall' fstab
+genfstab -pU harddiskforarch >> harddiskforarch/etc/fstab
+#####################################
+# Make /tmp a ramdisk (add the following line to harddiskforarch/etc/fstab) - not if too low memory
+#echo "tmpfs	/tmp	tmpfs	defaults,noatime,mode=1777	0	0" >> harddiskforarch/etc/fstab
+sed -i 's/\/root\/harddiskforarch/\//g' harddiskforarch/etc/fstab
+
+# Swap is in /etc/fstab, not needed now anymore
+swapoff $swappart
+
+cp arch0* harddiskforarch/root
+rm harddiskforarch/root/arch01makeroot
+
+# Change relatime on all non-boot partitions to noatime (reduces wear if using an SSD)
+
+echo ""
+echo "Enter the new system and run arch02inchroot in /root"
+echo ""
+echo "arch-chroot harddiskforarch /bin/bash"
+echo ""
+echo "cd root"
+echo ""
+echo "./arch02inchroot"
+echo ""
