@@ -100,7 +100,8 @@ pacman -S --noconfirm --needed unrar unzip zip unarj p7zip gzip bzip2 mesa-libgl
 sleep 2
 # Mate packages (Lxde has some annoying errors recently and mate works better with media mounts)
 pacman -S --noconfirm --needed calligra-krita gpicview openbox transmission-gtk mediainfo-gui gvfs texlive-bin evince mate mate-extra midori xine-ui gnome-alsamixer file-roller audacious
-pacman -S --noconfirm --needed leafpad
+# Other programs
+pacman -S --noconfirm --needed leafpad ddrescue wine
 sleep 2
 # Game packages
 pacman -S --noconfirm --needed kobodeluxe klines fltk-games
@@ -175,10 +176,6 @@ systemctl disable smartd
 # Sound always on to avoid hdmi audio popping:
 sed -i 's/load-module module-suspend-on-idle/#load-module module-suspend-on-idle/g' /etc/pulse/default.pa
 sed -i 's/load-module module-suspend-on-idle/#load-module module-suspend-on-idle/g' /etc/pulse/system.pa
-# Comment settings that will be modified, double comment if commented:
-sed -i 's/flat-volumes = /; flat-volumes = /g' /etc/pulse/daemon.conf
-sed -i 's/nice-level = /; nice-level = /g' /etc/pulse/daemon.conf
-sed -i 's/realtime-scheduling = /; realtime-scheduling = /g' /etc/pulse/daemon.conf
 # Avoid system hangs because of audio, let the audio hang instead:
 cp /etc/pulse/daemon.conf /etc/pulse/daemon.conf.original
 echo "# Settings modified from their default to avoid system hangs:" > /etc/pulse/daemon.conf
@@ -199,8 +196,6 @@ sleep 5
 sync
 sleep 3
 amixer cset numid=3 -- 90%
-mkdir /var/cache/chromiumdir
-chown 777 /var/cache/chromiumdir
 echo ""
 echo ""
 echo "To make sound work after installing mate, reboot, open alsamixer,"
@@ -330,6 +325,29 @@ Section "ServerFlags"
 EndSection
 EOF
 ################################################################################
+# This doesn't work in arch-chroot:
+echo "Activating locales for Romania..."
+echo ""
+echo "You can edit this script to activate another..."
+echo ""
+sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
+sed -i 's/#ro_RO.UTF-8 UTF-8/ro_RO.UTF-8 UTF-8/g' /etc/locale.gen
+sleep 1
+locale-gen
+sleep 1
+localectl set-locale LANG=ro_RO.UTF8
+sleep 1
+localectl --no-convert set-keymap ro
+sleep 1
+localectl --no-convert set-x11-keymap ro pc105 ,dvorak grp:alt_shift_toggle
+sleep 1
+echo "KEYMAP=ro" > /etc/vconsole.conf
+sleep 1
+echo ""
+echo "If you don't like the locale ro, change in this script."
+echo ""
+echo "View the locale and keymap with list-locales, list-keymaps."
+echo ""
 echo ""
 echo ""
 echo "Now run the imstall scripts in order."
