@@ -36,7 +36,7 @@ echo ""
 pacman -Syu --noconfirm
 sleep 2
 # Console packages - fdisk is in util-linux which is in base-devel
-pacman -S --noconfirm --needed base base-devel arch-install-scripts dosfstools ddrescue mtools libarchive pkgfile iotop gptfdisk parted mkinitcpio mkinitcpio-busybox upower mc libnewt newt-syrup openssh openssl wiringpi espeak mpg123 flac lame youtube-dl imagemagick git wget libx264 mediainfo ncdu vorbis-tools elinks mc pkgfile
+pacman -S --noconfirm --needed base base-devel arch-install-scripts dosfstools ddrescue mtools libarchive pkgfile iotop gptfdisk parted mkinitcpio mkinitcpio-busybox upower mc libnewt newt-syrup openssh openssl wiringpi espeak mpg123 flac lame youtube-dl imagemagick git wget libx264 mediainfo ncdu vorbis-tools elinks mc pkgfile ncdu
 sleep 2
 echo ""
 pkgfile --update
@@ -101,7 +101,7 @@ sleep 2
 # Mate packages (Lxde has some annoying errors recently and mate works better with media mounts)
 pacman -S --noconfirm --needed calligra-krita gpicview openbox transmission-gtk mediainfo-gui gvfs texlive-bin evince mate mate-extra midori xine-ui gnome-alsamixer file-roller audacious
 # Other programs
-pacman -S --noconfirm --needed leafpad ddrescue wine
+pacman -S --noconfirm --needed leafpad ddrescue wine hardinfo
 sleep 2
 # Game packages
 pacman -S --noconfirm --needed kobodeluxe klines fltk-games
@@ -285,15 +285,15 @@ echo "Conf file to improove disk performance:"
 echo "/etc/sysctl.d/30-rpi-optimizations.conf"
 echo ""
 cat <<EOF > /etc/sysctl.d/30-rpi-optimizations.conf
-vm.swappiness = 1
-vm.min_free_kbytes = 32768
+vm.swappiness = 60
+vm.min_free_kbytes = 8192
 vm.vfs_cache_pressure = 500
 vm.dirty_bytes = 8388608
 vm.dirty_background_bytes = 8388608
 vm.dirty_writeback_centisecs = 600
 vm.dirty_expire_centisecs = 600
 # In other words the seven optimizations do this, in their order, each in paranthesis:
-#    (keep caches minimum and swap minimum), (keep a free memory of 32 MB), (keep a
+#    (swap at 60 % to avoid long mouse locks), (keep a free memory of 8 MB), (keep a
 #    minimum amount of file information in cache), (processes write after reaching
 #    8MB in their memory) to a (cache of 8 MB in size), in which (old data is
 #    written every 6 seconds) and (data is considered old after 6 seconds).
