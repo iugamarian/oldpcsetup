@@ -189,7 +189,7 @@ echo ""
 mke2fs -t ext2 -m 0 -F -L BOOTPC $bootpart
 mkswap $swappart
 # Disabling lazy options so that all inodes get written now not bit by bit later.
-mke2fs -t ext4 -m 0 -F -L ROOTPC -E lazy_itable_init=0,lazy_journal_init=0 $rootpart
+mke2fs -t ext4 -m 0 -F -O ^64bit -L ROOTPC -E lazy_itable_init=0,lazy_journal_init=0 $rootpart
 echo ""
 echo "Mounting partitions:"
 echo ""
